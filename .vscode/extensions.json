@@ -1,0 +1,10 @@
+{
+  // Recommended extensions for the Capstone project teams
+  "recommendations": [
+    "ms-python.python",
+    "ms-azuretools.vscode-docker",
+    "esbenp.prettier-vscode",
+    "tamasfe.even-better-toml",
+    "yzhang.markdown-all-in-one"
+  ]
+}
