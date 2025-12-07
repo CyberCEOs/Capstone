@@ -1,0 +1,1 @@
+FROM ./baronllm-llama3.1-v1-q6_k.gguf
