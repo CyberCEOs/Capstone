@@ -1,6 +1,8 @@
 from .base import BaseRedAgent
 import json
+from dspy import Signature
 from datetime import datetime
+import os
 
 class ReportingAgent(BaseRedAgent):
     def __init__(self):
@@ -9,8 +11,9 @@ class ReportingAgent(BaseRedAgent):
     def execute(self, campaign_data):
         self.log("Compiling Final Report...")
         
-        report_path = "../memory/FINAL_REPORT.md"
-        
+        report_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "memory", "FINAL_REPORT.md")
+        os.makedirs(os.path.dirname(report_path), exist_ok=True)
+
         with open(report_path, "w") as f:
             f.write(f"# Red Team Engagement Report\n")
             f.write(f"**Date:** {datetime.now()}\n\n")

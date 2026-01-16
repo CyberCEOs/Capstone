@@ -17,5 +17,12 @@ class InitialAccessAgent(BaseRedAgent):
         decision = self.decider(vuln_list=str(vulns))
         
         # Trigger Ryan's Metasploit Wrapper
-        result = launch_metasploit_exploit(target_ip, decision.best_cve)
-        return result
+        best_cve = getattr(decision, 'best_cve', None)
+        result = launch_metasploit_exploit(target_ip, best_cve)
+        # Normalize return value to the orchestrator's expected status field
+        if isinstance(result, dict) and result.get('success'):
+            return {"status": "SHELL_ESTABLISHED", "session_id": result.get('session_id'), "user": result.get('user')}
+        elif result is True:
+            return {"status": "SHELL_ESTABLISHED"}
+        else:
+            return {"status": "FAILED"}

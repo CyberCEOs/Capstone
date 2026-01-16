@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  kali:
+    build:
+      context: ../docker/kali
+      dockerfile: Dockerfile
+    image: capstone_kali:latest
+    ports:
+      - "2222:22"
+    volumes:
+      - ./:/home/pentester/workspace:delegated
+    tty: true
+    stdin_open: true
+    restart: unless-stopped

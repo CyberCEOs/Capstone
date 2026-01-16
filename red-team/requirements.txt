@@ -1,0 +1,5 @@
+dspy==3.0.0
+ollama
+requests
+streamlit
+pandas

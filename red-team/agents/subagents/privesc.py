@@ -19,4 +19,5 @@ class PrivEscAgent(BaseRedAgent):
         
         plan = self.decider(enum_output=str(enum_data))
         self.log(f"Attempting escalation via: {plan.technique}")
-        return {"success": True} # Simulating success for now
+        # Simulate success and return status expected by orchestrator
+        return {"status": "ROOT_ACQUIRED", "details": {"technique": getattr(plan, 'technique', None)}}
