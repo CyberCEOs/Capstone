@@ -1,1 +1,5 @@
 .venv/nRed_Team/models/n
+.env.live
+red-team/.env.live
+# Ignore large local model files
+red-team/memory/*.gguf
