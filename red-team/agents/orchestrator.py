@@ -3,7 +3,7 @@ import json
 import os
 import sys
 import time # Added for potential logging delay or timeout
-from datetime import datetime
+from datetime import datetime, timezone
 
 # --- START PATH FIX (Required to find 'subagents' and 'tools') ---
 # This tells Python to look in the current directory ('agents') for modules
@@ -35,6 +35,9 @@ class Orchestrator:
             "is_root": False,
             "exfiltrated": False,
             "lateral_attempts": 0, # NEW: Counter for loop detection
+            "recon_attempts": 0,
+            "exfil_attempts": 0,  # NEW: Counter for EXFIL loop detection
+            "privesc_attempts": 0,  # NEW: Counter for PRIVESC loop detection
             "campaign_log_path": os.path.join(
                 os.path.dirname(os.path.dirname(__file__)), # Go up to red-team/
                 "memory", 
@@ -73,7 +76,7 @@ class Orchestrator:
 
     def _log_action(self, phase, status, details=None):
         action_data = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "phase": phase,
             "status": status,
             "target": self.state['current_target'],
@@ -158,7 +161,7 @@ class Orchestrator:
             elif phase == "PRIVESC":
                 # Implementation of PrivEscAgent
                 output = self.privexec.execute(self.state['current_target'])
-                if output.get("status") == "ROOT_ACQUIRED":
+                if output.get("status") == "ROOT_ACQUIRED" and output.get("details", {}).get("technique"):
                     self.state['is_root'] = True
                 self._log_action(phase, output.get("status", "FAILED"), output)
 
@@ -191,6 +194,21 @@ class Orchestrator:
             else:
                 self.state['lateral_attempts'] = 0 
 
+            if phase == "RECON":
+                self.state['recon_attempts'] += 1
+            else:
+                self.state['recon_attempts'] = 0 
+
+            if phase == "EXFIL":
+                self.state['exfil_attempts'] += 1
+            else:
+                self.state['exfil_attempts'] = 0
+
+            if phase == "PRIVESC":
+                self.state['privesc_attempts'] += 1
+            else:
+                self.state['privesc_attempts'] = 0 
+
             # --- LOGIC OVERRIDE (ANTI-OSCILLATION) ---
             next_phase = "DECISION"
 
@@ -198,13 +216,24 @@ class Orchestrator:
             if self.state['lateral_attempts'] > 3:
                 print("\n[OVERRIDE] 🚨 LATERAL MOVEMENT STUCK. Forcing final action.")
                 next_phase = "REPORT"
-            
-            # B. Override: Force EXFIL after Root Access
+            # B. Override: Detect if stuck in RECON loop (> 2 attempts)
+            elif self.state['recon_attempts'] > 2:
+                print("\n[OVERRIDE] 🚨 RECON LOOP DETECTED. Forcing ACCESS phase.")
+                next_phase = "ACCESS"
+            # C. Override: Detect if stuck in EXFIL loop (> 3 attempts)
+            elif self.state['exfil_attempts'] > 3:
+                print("\n[OVERRIDE] 🚨 EXFIL LOOP DETECTED. Forcing REPORT.")
+                next_phase = "REPORT"
+            # D. Override: Detect if stuck in PRIVESC loop (> 3 attempts)
+            elif self.state['privesc_attempts'] > 3:
+                print("\n[OVERRIDE] 🚨 PRIVESC LOOP DETECTED. Forcing EXFIL.")
+                next_phase = "EXFIL"
+            # E. Override: Force EXFIL after Root Access
             elif self.state.get("is_root") and not self.state.get("exfiltrated"):
                 print("[OVERRIDE] Root access achieved. Forcing EXFIL phase.")
                 next_phase = "EXFIL"
             
-            # C. Override: Force REPORT after Exfiltration
+            # F. Override: Force REPORT after Exfiltration
             elif self.state.get("exfiltrated"):
                 print("[OVERRIDE] Exfil complete. Forcing REPORT phase.")
                 next_phase = "REPORT"
@@ -212,6 +241,9 @@ class Orchestrator:
             else:
                 # Fallback to AI decision if state is ambiguous
                 next_phase = self.strategy.execute(summary)
+                # Map EXPLOIT to ACCESS
+                if next_phase == "EXPLOIT":
+                    next_phase = "ACCESS"
             
             # Set the new phase
             # Detect simple oscillation: if the last two phases are identical repeatedly,
